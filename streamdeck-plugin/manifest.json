@@ -1,1 +1,60 @@
-
+{
+  "Actions": [
+    {
+      "Icon": "images/clipper-icon",
+      "Name": "Create Clip",
+      "States": [
+        {
+          "Image": "images/clipper-default",
+          "TitleAlignment": "middle",
+          "FontSize": "12"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "Tooltip": "Create a clip and post to Twitch/YouTube chats",
+      "UUID": "com.bigchiefrick.multistream-clipper.create-clip"
+    },
+    {
+      "Icon": "images/test-icon",
+      "Name": "Test Connection",
+      "States": [
+        {
+          "Image": "images/test-default",
+          "TitleAlignment": "middle",
+          "FontSize": "12"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "Tooltip": "Test Twitch and YouTube API connections",
+      "UUID": "com.bigchiefrick.multistream-clipper.test-connection"
+    }
+  ],
+  "Author": "BigChiefRick",
+  "CodePath": "src/plugin.js",
+  "Description": "Create Twitch clips and automatically post them to both Twitch and YouTube live chats for multi-streaming teams",
+  "Name": "MultiStream Clipper",
+  "Icon": "images/plugin-icon",
+  "PropertyInspectorPath": "property-inspector/index.html",
+  "Version": "1.0.0",
+  "OS": [
+    {
+      "Platform": "mac",
+      "MinimumVersion": "10.15"
+    },
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "5.0"
+  },
+  "Category": "Streaming",
+  "CategoryIcon": "images/category-icon",
+  "URL": "https://github.com/BigChiefRick/clipper",
+  "SDKVersion": 2,
+  "DefaultWindowSize": {
+    "Width": 500,
+    "Height": 650
+  }
+}
