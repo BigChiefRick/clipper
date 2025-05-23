@@ -292,3 +292,360 @@ class TwitchAPI {
         error: error.response?.data?.message || error.message || 'Unknown error occurred'
       };
     }
+  }
+
+  // Verify clip exists (optional verification step)
+  async verifyClipExists(clipId) {
+    try {
+      await this.rateLimit();
+      
+      const response = await axios.get(`${this.helixBaseURL}/clips`, {
+        headers: {
+          'Client-ID': this.clientId,
+          'Authorization': `Bearer ${this.accessToken}`
+        },
+        params: {
+          id: clipId
+        },
+        timeout: 10000
+      });
+
+      return response.data.data.length > 0;
+    } catch (error) {
+      logger.warn('Could not verify clip existence:', error.message);
+      return true; // Assume it exists if we can't verify
+    }
+  }
+
+  // Post message to Twitch chat
+  async postToChat(channelName, message) {
+    try {
+      if (!this.chatClient) {
+        return {
+          success: false,
+          error: 'Chat client not initialized - bot credentials not provided'
+        };
+      }
+
+      if (!this.isConnected) {
+        logger.warn('Chat client not connected, attempting to reconnect...');
+        try {
+          await this.chatClient.connect();
+          await this.sleep(1000); // Wait for connection
+        } catch (connectError) {
+          return {
+            success: false,
+            error: 'Could not connect to Twitch chat'
+          };
+        }
+      }
+
+      // Ensure we're joined to the channel
+      const channels = this.chatClient.getChannels();
+      const targetChannel = `#${channelName.toLowerCase()}`;
+      
+      if (!channels.includes(targetChannel)) {
+        await this.joinChannel(channelName);
+        await this.sleep(500); // Wait for join to complete
+      }
+
+      await this.chatClient.say(targetChannel, message);
+      
+      logger.info(`Posted to ${channelName} chat: ${message}`);
+      
+      return {
+        success: true,
+        message: 'Posted to Twitch chat successfully',
+        channel: channelName,
+        text: message
+      };
+
+    } catch (error) {
+      logger.error('Error posting to chat:', error);
+      return {
+        success: false,
+        error: error.message || 'Failed to post to Twitch chat'
+      };
+    }
+  }
+
+  // Join a channel's chat
+  async joinChannel(channelName) {
+    try {
+      if (!this.chatClient) {
+        throw new Error('Chat client not initialized');
+      }
+
+      const targetChannel = `#${channelName.toLowerCase()}`;
+      await this.chatClient.join(targetChannel);
+      
+      logger.info(`Joined channel: ${channelName}`);
+      
+      return {
+        success: true,
+        message: `Joined ${channelName} successfully`
+      };
+
+    } catch (error) {
+      logger.error('Error joining channel:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Leave a channel's chat
+  async leaveChannel(channelName) {
+    try {
+      if (!this.chatClient) {
+        throw new Error('Chat client not initialized');
+      }
+
+      const targetChannel = `#${channelName.toLowerCase()}`;
+      await this.chatClient.part(targetChannel);
+      
+      logger.info(`Left channel: ${channelName}`);
+      
+      return {
+        success: true,
+        message: `Left ${channelName} successfully`
+      };
+
+    } catch (error) {
+      logger.error('Error leaving channel:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Get channel information
+  async getChannelInfo(channelName) {
+    try {
+      const userId = await this.getUserId(channelName);
+      await this.rateLimit();
+      
+      const response = await axios.get(`${this.helixBaseURL}/channels`, {
+        headers: {
+          'Client-ID': this.clientId,
+          'Authorization': `Bearer ${this.accessToken}`
+        },
+        params: {
+          broadcaster_id: userId
+        },
+        timeout: 10000
+      });
+
+      if (response.data.data.length === 0) {
+        throw new Error(`Channel information not found for ${channelName}`);
+      }
+
+      return {
+        success: true,
+        data: response.data.data[0]
+      };
+
+    } catch (error) {
+      logger.error('Error getting channel info:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Test connection and permissions
+  async testConnection(channelName = null) {
+    const results = {
+      timestamp: new Date().toISOString()
+    };
+
+    try {
+      // Test API connection and token validity
+      await this.rateLimit();
+      const response = await axios.get(`${this.helixBaseURL}/users`, {
+        headers: {
+          'Client-ID': this.clientId,
+          'Authorization': `Bearer ${this.accessToken}`
+        },
+        timeout: 10000
+      });
+
+      results.api = {
+        success: true,
+        message: 'API connection successful',
+        user: response.data.data[0]?.display_name || 'Unknown',
+        scopes: await this.getTokenScopes()
+      };
+
+      // Test chat connection
+      results.chat = {
+        success: !!this.chatClient && this.isConnected,
+        message: this.chatClient 
+          ? (this.isConnected ? 'Chat client connected' : 'Chat client initialized but not connected')
+          : 'Chat client not initialized (bot credentials not provided)',
+        connectedChannels: this.chatClient ? this.chatClient.getChannels() : []
+      };
+
+      // Test specific channel if provided
+      if (channelName) {
+        try {
+          const userId = await this.getUserId(channelName);
+          const isLive = await this.isChannelLive(channelName);
+          const channelInfo = await this.getChannelInfo(channelName);
+          
+          results.channel = {
+            success: true,
+            name: channelName,
+            userId,
+            isLive,
+            info: channelInfo.success ? channelInfo.data : null,
+            message: `Channel found. Live status: ${isLive}`
+          };
+        } catch (error) {
+          results.channel = {
+            success: false,
+            name: channelName,
+            error: error.message
+          };
+        }
+      }
+
+      // Overall health status
+      results.overall = {
+        success: results.api.success && (results.chat.success || !this.botOAuth),
+        message: results.api.success 
+          ? 'Twitch API integration healthy'
+          : 'Twitch API integration has issues'
+      };
+
+      return results;
+
+    } catch (error) {
+      logger.error('Error testing connection:', error.response?.data || error.message);
+      
+      results.api = {
+        success: false,
+        error: error.response?.data?.message || error.message
+      };
+      
+      results.overall = {
+        success: false,
+        message: 'Twitch API connection failed'
+      };
+
+      return results;
+    }
+  }
+
+  // Get token scopes for verification
+  async getTokenScopes() {
+    try {
+      const response = await axios.get('https://id.twitch.tv/oauth2/validate', {
+        headers: {
+          'Authorization': `OAuth ${this.accessToken}`
+        },
+        timeout: 10000
+      });
+
+      return response.data.scopes || [];
+    } catch (error) {
+      logger.error('Error getting token scopes:', error.message);
+      return [];
+    }
+  }
+
+  // Validate access token
+  async validateToken() {
+    try {
+      const response = await axios.get('https://id.twitch.tv/oauth2/validate', {
+        headers: {
+          'Authorization': `OAuth ${this.accessToken}`
+        },
+        timeout: 10000
+      });
+
+      return {
+        success: true,
+        data: response.data,
+        expiresIn: response.data.expires_in,
+        scopes: response.data.scopes
+      };
+
+    } catch (error) {
+      logger.error('Token validation failed:', error.response?.data || error.message);
+      return {
+        success: false,
+        error: 'Invalid or expired access token'
+      };
+    }
+  }
+
+  // Health check for monitoring
+  async healthCheck() {
+    try {
+      const tokenValidation = await this.validateToken();
+      
+      return {
+        status: tokenValidation.success ? 'ok' : 'error',
+        timestamp: new Date().toISOString(),
+        token: {
+          valid: tokenValidation.success,
+          expiresIn: tokenValidation.expiresIn,
+          scopes: tokenValidation.scopes
+        },
+        chat: {
+          initialized: !!this.chatClient,
+          connected: this.isConnected,
+          channels: this.chatClient ? this.chatClient.getChannels().length : 0
+        },
+        cache: {
+          keys: this.cache.keys().length,
+          stats: this.cache.getStats()
+        }
+      };
+    } catch (error) {
+      return {
+        status: 'error',
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Utility function to sleep
+  sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // Clean up resources
+  disconnect() {
+    if (this.chatClient) {
+      this.chatClient.disconnect();
+      logger.info('Disconnected from Twitch chat');
+    }
+    
+    // Clear cache
+    this.cache.flushAll();
+    
+    this.isConnected = false;
+  }
+
+  // Get cache statistics
+  getCacheStats() {
+    return {
+      keys: this.cache.keys(),
+      stats: this.cache.getStats()
+    };
+  }
+
+  // Clear cache
+  clearCache() {
+    this.cache.flushAll();
+    logger.info('Twitch API cache cleared');
+  }
+}
+
+module.exports = TwitchAPI;
