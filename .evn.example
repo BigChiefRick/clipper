@@ -1,0 +1,23 @@
+# Server Configuration
+PORT=3000
+
+# Twitch API Configuration
+TWITCH_CLIENT_ID=your_twitch_client_id_here
+TWITCH_CLIENT_SECRET=your_twitch_client_secret_here
+TWITCH_ACCESS_TOKEN=your_twitch_access_token_here
+
+# Twitch Bot Account for Chat (Optional - for posting clips to chat)
+TWITCH_BOT_USERNAME=your_bot_username
+TWITCH_BOT_OAUTH=oauth:your_bot_oauth_token_here
+
+# YouTube API Configuration (Optional - for cross-posting to YouTube)
+YOUTUBE_API_KEY=your_youtube_api_key_here
+YOUTUBE_CLIENT_ID=your_youtube_client_id_here
+YOUTUBE_CLIENT_SECRET=your_youtube_client_secret_here
+
+# Example values (DO NOT USE THESE IN PRODUCTION):
+# TWITCH_CLIENT_ID=abc123def456
+# TWITCH_CLIENT_SECRET=xyz789uvw012
+# TWITCH_ACCESS_TOKEN=abcdefghijklmnopqrstuvwxyz123456
+# TWITCH_BOT_USERNAME=my_stream_bot
+# TWITCH_BOT_OAUTH=oauth:bot_token_here
