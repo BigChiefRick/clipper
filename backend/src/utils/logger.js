@@ -143,4 +143,54 @@ logger.request = (req, res, responseTime) => {
 };
 
 logger.apiCall = (service, endpoint, statusCode, responseTime, error = null) => {
-  const level = error ? '
+  const level = error ? 'error' : 'info';
+  
+  logger.log(level, `API Call: ${service}`, {
+    endpoint,
+    statusCode,
+    responseTime: `${responseTime}ms`,
+    error: error?.message
+  });
+};
+
+logger.clipEvent = (event, data) => {
+  logger.info(`Clip Event: ${event}`, data);
+};
+
+logger.streamDeckEvent = (event, data) => {
+  logger.info(`Stream Deck: ${event}`, data);
+};
+
+logger.security = (event, details) => {
+  logger.warn(`Security Event: ${event}`, details);
+};
+
+// Performance logging
+logger.performance = {
+  start: (operation) => {
+    const startTime = Date.now();
+    return {
+      end: (additionalData = {}) => {
+        const duration = Date.now() - startTime;
+        logger.debug(`Performance: ${operation}`, {
+          duration: `${duration}ms`,
+          ...additionalData
+        });
+        return duration;
+      }
+    };
+  }
+};
+
+// Create child logger for specific modules
+logger.child = (module, additionalFields = {}) => {
+  return {
+    error: (message, meta = {}) => logger.error(message, { module, ...additionalFields, ...meta }),
+    warn: (message, meta = {}) => logger.warn(message, { module, ...additionalFields, ...meta }),
+    info: (message, meta = {}) => logger.info(message, { module, ...additionalFields, ...meta }),
+    debug: (message, meta = {}) => logger.debug(message, { module, ...additionalFields, ...meta })
+  };
+};
+
+// Export logger with additional utilities
+module.exports = logger;
